@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset = "utf-8"/>
+		<title>Breakout</title>
+		<style>
+			canvas{
+				border: 1px solid black;
+			}
+			body{
+				width: 700px;
+				margin: auto;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Breakout</h1>
+		<canvas width="700" height="400">
+			Seu navegador nao tem suporte ao canvas!
+		</canvas>
+
+		<script>
+			var tela = document.getElementsByTagName("canvas")[0];
+			var ctx = tela.getContext("2d");
+			var fps = 60;
+			var dt = 1/fps;
+			var minX = 0;
+			var maxX = tela.width;
+			var minY = 0;
+			var maxY = tela.height;
+			var vidas = 3;
+			var bolaSolta = 0;
+			var interval = 0;
+			var interval2 = 0;
+			var interval3 = 0;
+			var stage = 0;
+			var nivel = 1;
+			var imgInimigo = new Image();
+			imgInimigo.src = "brick.png";
+
+			basePx = tela.width/2;
+			basePy = tela.height - 10;
+			baseTx = 80;
+			baseTy = 10;
+			baseVx = 0;
+
+			var bola = new SpriteBola();
+			var inimigos = [];
+
+			var qtdQuadX = 15;
+			var qtdQuadY = 6;
+			
+
+			for(var i=0;i<qtdQuadX;i++){
+				for(var j=0;j<qtdQuadY;j++){
+					var inimigo = new SpriteInimigo();
+					inimigo.x = i*inimigo.tx;
+					inimigo.y = tela.height/10 + j*inimigo.ty;
+					this.quebrado = 0;
+					inimigos.push(inimigo);
+				}
+			}
+
+			function SpriteBola(){
+				this.raio = 5;
+				this.x = basePx;
+				this.y = basePy - baseTy/2 - this.raio;
+				this.vx = 0;
+				this.vy = 0;
+				this.ax = 0;
+				this.ay = 0;
+			}
+
+			function SpriteInimigo(){
+				this.x;
+				this.y;
+				this.tx = tela.width/qtdQuadX;
+				this.ty = (tela.height/2 - tela.height/10)/qtdQuadY;
+				this.quebrado;
+			}
+
+			function moverBase(){
+				basePx = basePx + baseVx*dt;
+			}
+
+			SpriteBola.prototype.moverBola = function(){
+				if(bolaSolta){
+					this.vx = this.vx + this.ax*dt;
+	 				this.x = this.x + this.vx*dt;
+	 				this.vy = this.vy + this.ay*dt;
+	 				this.y = this.y + this.vy*dt;
+				}
+				else{
+	 				this.x = basePx;
+					this.y = basePy - baseTy/2 - this.raio;
+	 			}
+			}
+
+			function desenharBase(){				
+				ctx.fillStyle = 'lightgrey';
+				ctx.strokeStyle = 'darkgrey';
+				
+				ctx.lineWidth = 2;
+				ctx.beginPath();
+				ctx.moveTo(basePx - baseTx/2,	basePy - baseTy/2);
+				
+				ctx.lineTo(basePx + baseTx/2, basePy - baseTy/2);
+				
+				ctx.arcTo(basePx + baseTx/2 + 10, basePy, basePx + 
+				baseTx/2, basePy + baseTy/2, 5);
+				
+				ctx.lineTo(basePx - baseTx/2, basePy + baseTy/2);
+
+				ctx.arcTo(basePx - baseTx/2 - 10, basePy, basePx -
+				baseTx/2, basePy - baseTy/2, 5);
+				ctx.closePath();
+				ctx.fill();
+				ctx.stroke();
+			} 
+
+			SpriteBola.prototype.desenharBola = function(){
+				ctx.fillStyle = 'red';
+				ctx.strokeStyle = 'darkred';
+
+				ctx.lineWidth = 2;
+
+				ctx.beginPath();
+				ctx.arc(this.x, this.y, this.raio, 0, 2*Math.PI);
+				ctx.closePath();
+				ctx.fill();
+				ctx.stroke();
+			}
+
+			SpriteInimigo.prototype.desenharInimigo = function() {
+				ctx.fillStyle = 'lightblue';
+				ctx.strokeStyle = 'darkblue';
+
+				ctx.lineWidth = 2;
+				ctx.fillRect(this.x, this.y, this.tx, this.ty);
+				ctx.drawImage(imgInimigo, this.x, this.y, this.tx, this.ty);
+				
+			}
+			
+			function restricoesBase(){
+				if(basePx<minX + baseTx/2 + 5){  //5 do abaloamento
+					basePx = baseTx/2 + 5;
+					baseVx = 0;
+				}
+				if(basePx>maxX - baseTx/2 - 5){
+					basePx = maxX - baseTx/2 - 5;
+					baseVx = 0;
+				}
+			}
+
+			SpriteBola.prototype.restricoesBola = function(){
+				if(this.x < minX + this.raio)
+				{
+					this.vx = - this.vx;
+					this.ax = - this.ax;
+				}
+				else if(this.x > maxX - this.raio)
+				{
+					this.vx = - this.vx;
+					this.ax = - this.ax;
+				}
+				else if(this.y < minY + this.raio)
+				{
+					this.vy = - this.vy;
+					this.ay = - this.ay;
+				}
+				else if(this.y > maxY + this.raio)
+				{
+					vidas--;
+					if(vidas == 0) stage = 2;
+					this.x = basePx;
+					this.y = basePy - baseTy/2 - this.raio;
+					this.vx = 0;
+					this.vy = 0;
+					this.ax = 0;
+					this.ay = 0;
+					bolaSolta = 0;
+				}
+
+				else if(this.y >= basePy - baseTy/2 - this.raio && interval <= 0) //altura da base 
+				{	
+					
+					if(this.x >= basePx - baseTx/2 && this.x <= basePx + baseTx/2 && interval<=0){ // quica
+						this.ay = - this.ay;
+						this.vy = - this.vy;
+						this.vx = - (this.x - basePx)/(baseTx/2) * this.vy;
+
+						interval = 0.5;
+					}
+					else if(this.x < basePx - baseTx/2 && this.x >= basePx - baseTx/2 - 6 && interval<=0){
+						var aux = this.vy;
+						this.vy = - this.vy;
+						this.ay = - this.ay;
+						if(this.vx >= 0){
+							 this.vx = - Math.abs(aux) - Math.abs(this.vy/10);
+							 this.ax = - this.ax;
+						}
+						else if(this.vx < 0){
+							this.vx = - Math.abs(aux) - Math.abs(this.vy/10);
+						}
+						interval = 0.5;
+					}
+					else if(this.x > basePx + baseTx/2 && this.x <= basePx + baseTx/2 + 6 && interval<=0){
+						var aux = this.vy;
+						this.vy = - this.vy;
+						this.ay = - this.ay;
+						if(this.vx >= 0){
+							this.vx = Math.abs(aux) + Math.abs(this.vy/10);
+						}
+						else if(this.vx < 0){
+							this.vx = Math.abs(aux) + Math.abs(this.vy/10);
+							this.ax = - this.ax;
+						}
+						interval = 0.5;
+					}	
+				}	
+				interval -= dt;		
+			}
+
+			SpriteBola.prototype.colidiu = function(inimigo){
+				var x1 = inimigo.x;
+				var x2 = inimigo.x + inimigo.tx;
+				var y1 = inimigo.y;
+				var y2 = inimigo.y + inimigo.ty;
+				
+				if(this.x + this.raio >= x1 && this.x - this.raio <= x2){
+					if(this.y + this.raio >= y1 && this.y - this.raio <= y2)
+					{
+						inimigo.quebrado = 1;
+						if(this.x + this.raio >= x1 && this.x - this.raio <= x2 && this.y - this.raio <= y2 && this.y - this.raio >= y2 - 5){// parede de baixo
+							this.vy = - this.vy;
+							this.ay = - this.ay;	
+						}
+						else if(this.x + this.raio >= x1 && this.x - this.raio <= x2 && this.y + this.raio >= y1 && this.y + this.raio <= y1 + 5){//parede de cima
+							this.vy = - this.vy;
+							this.ay = - this.ay;
+						}
+						else if(this.y + this.raio >= y1 && this.y - this.raio <= y2 && this.x - this.raio <= x2 && this.x - this.raio >= x2 - 5){ //parede da direita
+							this.vx = - this.vx;
+							this.ax = - this.ax;
+						}
+						else if(this.y + this.raio >= y1 && this.y - this.raio <= y2 && this.x + this.raio >= x1 && this.x + this.raio <= x1 + 5){//parede da esquerda
+							this.vx = - this.vx;
+							this.ax = - this.ax;
+						}							
+						return true;
+					}
+				} 
+				return false;
+			
+				
+			}
+
+			SpriteBola.prototype.colisaoDupla = function(inimigo){
+				var x1 = inimigo.x;
+				var x2 = inimigo.x + inimigo.tx;
+				var y1 = inimigo.y;
+				var y2 = inimigo.y + inimigo.ty;
+				if(this.x + this.raio >= x1 && this.x - this.raio <= x2){
+					if(this.y + this.raio >= y1 && this.y - this.raio <= y2){
+						if(!inimigo.quebrado){
+							inimigo.quebrado = 1;
+							return true;
+						}
+					}
+				}
+				return false;
+			}
+
+			function desenhaPlacar(){				
+				ctx.font = "20px Impact";
+				ctx.lineWidth = 1;
+				ctx.fillStyle = 'black';
+				ctx.fillText("Vidas: " + vidas, 10, 30);
+				ctx.fillText("Level: " + nivel, 100, 30)
+			}
+
+			function desenhaAbertura(){
+				ctx.clearRect(0, 0, tela.width, tela.height);
+				ctx.font = "80px Impact";
+				ctx.lineWidth = 1;
+				ctx.fillStyle = 'black';
+				ctx.fillText("Breakout", 200, tela.height/2);
+				ctx.font = "20px Impact";				
+				ctx.fillText("Aperte espaço para iniciar e disparar a bola", 170,300);
+			}
+
+			function desenhaFinal(){
+				ctx.clearRect(0, 0, tela.width, tela.height);
+				ctx.font = "60px Impact";
+				ctx.fillText("Game Over", 200, tela.height/2);
+				ctx.font = "20px Impact";
+				ctx.lineWidth = 1;
+				ctx.fillText("Espaço pra tentar denovo", 230, 300);
+			} 
+
+			function desenhaProximoNivel(){
+				ctx.clearRect(0, 0, tela.width, tela.height);
+				ctx.font = "40px Impact";
+				ctx.lineWidth = 2;
+				ctx.fillStyle = 'black';
+				ctx.clearRect(0,0, tela.width, tela.height);
+				ctx.fillText("Nivel "+nivel, 280, tela.height/2);
+			}
+
+			function passo(){
+				var cont=0;
+				if(stage==0) desenhaAbertura();
+				if(stage==1){
+					moverBase();
+					bola.moverBola();
+					restricoesBase();
+					bola.restricoesBola();
+					ctx.clearRect(0, 0, tela.width, tela.height);
+					for(var i in inimigos){
+						if(!inimigos[i].quebrado){							
+							if(bola.colidiu(inimigos[i])){					
+								for(var j=Number(i) + Number(1); j<qtdQuadX*qtdQuadY; j++){
+									if(inimigos[i].x == inimigos[j].x || 
+									inimigos[i].y == inimigos[j].y)
+										if(bola.colisaoDupla(inimigos[j])){
+											break;
+										}
+								}								
+							}
+							inimigos[i].desenharInimigo();
+							cont = 1;
+							
+
+						}	
+					}
+					desenharBase();
+					bola.desenharBola();
+					desenhaPlacar();
+					if(cont==0){
+						stage = -1;
+						nivel++;
+					}
+				}
+				if(stage==2) desenhaFinal();
+				if(stage==-1) desenhaProximoNivel();				
+			}
+
+				
+			function teclaPressionada(e){
+				switch(e.keyCode){
+					case 32: //espaço
+						if(stage==0){
+							stage=1;
+						}
+						else if(stage==1){
+							if(!bolaSolta){
+								bola.vx = 150 + (Number(nivel) - 1)*70 ;
+								bola.vy = -220 - (Number(nivel) - 1)*70;
+								bola.ax = 1 + (Number(nivel) - 1)*0.2;
+								bola.ay = -1 + (Number(nivel) - 1)*0.2;
+								bolaSolta = 1;
+								}
+						}
+						else if(stage==2){
+							stage=1;
+							nivel = 1;
+							for(var i in inimigos){
+									inimigos[i].quebrado = 0;
+							}
+							vidas = 3;
+						}
+						else if(stage== -1){
+							stage = 1;
+							for(var i in inimigos){
+									inimigos[i].quebrado = 0;
+							}
+							bola.x = basePx;
+							bola.y = basePy - baseTy/2 - this.raio;
+							bola.vx = 0;
+							bola.vy = 0;
+							bola.ax = 0;
+							bola.ay = 0;
+							bolaSolta = 0;
+						}
+						
+					
+					break;
+					case 39: //deretcha
+						if(stage==1) baseVx = 250 + (Number(nivel) - 1)*30;
+					break;
+					case 37: //esquerdja
+						if(stage==1) baseVx = -250 - (Number(nivel) - 1)*30;
+					break;
+				}
+			}
+
+			function teclaSolta(e){
+				switch(e.keyCode){
+					case 39:
+					case 37:
+						baseVx = 0;
+					break;
+				}
+			}
+
+
+
+			setInterval(passo, 1000/fps);
+
+			addEventListener("keydown", teclaPressionada);
+			addEventListener("keyup", teclaSolta);
+
+
+
+		</script>
+
+	</body>
+</html>
